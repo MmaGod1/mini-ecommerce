@@ -1,0 +1,11 @@
+{"timestamp":"00:00:25.770","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:28.863","source":"Server","level":"LOG","message":"○ Compiling /admin ..."}
+{"timestamp":"00:00:42.585","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"00:33:14.920","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"01:16:49.076","source":"Browser","level":"INFO","message":"Download the React DevTools for a better development experience: https://react.dev/link/react-devtools"}
+{"timestamp":"02:19:32.907","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
+{"timestamp":"02:20:29.787","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
+{"timestamp":"02:20:49.988","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
+{"timestamp":"02:21:25.379","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
+{"timestamp":"02:22:04.696","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
+{"timestamp":"02:22:47.462","source":"Server","level":"LOG","message":"  Reload env: .env.local"}
