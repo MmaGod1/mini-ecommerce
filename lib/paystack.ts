@@ -35,17 +35,8 @@ export async function openPaystackCheckout(options: {
 
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
-  console.log("Paystack public key status:", {
-    exists: Boolean(publicKey),
-    type: publicKey?.startsWith("pk_test_")
-      ? "test"
-      : publicKey?.startsWith("pk_live_")
-        ? "live"
-        : "invalid-or-unknown",
-  });
-
   if (!publicKey) {
-    throw new Error("Payment is not configured yet.");
+    throw new Error("We couldn't start the payment. Please try again.");
   }
 
   const handler = window.PaystackPop!.setup({
