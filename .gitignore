@@ -14,3 +14,7 @@
 .DS_Store
 *.pem
 npm-debug.log*
+
+.next/
+test-results/
+playwright-report/
