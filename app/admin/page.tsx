@@ -9,6 +9,18 @@ const LOW_STOCK_THRESHOLD = 2;
 export default function AdminDashboard() {
   const { products, updateVariantStock } = useShop();
 
+  async function handleStockChange(
+    productId: string,
+    variantId: string,
+    newStock: number
+  ) {
+    try {
+      await updateVariantStock(productId, variantId, newStock);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not update stock.");
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
@@ -19,6 +31,12 @@ export default function AdminDashboard() {
             className="px-4 py-2 rounded-full text-sm font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
           >
             View Orders
+          </Link>
+          <Link
+            href="/admin/bundles"
+            className="px-4 py-2 rounded-full text-sm font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
+          >
+            Bundle Deals
           </Link>
           <Link
             href="/admin/products/new"
@@ -107,6 +125,7 @@ export default function AdminDashboard() {
                         <div className="min-w-0">
                           <p className="font-semibold text-ink-900 truncate">
                             {v.color}
+                            {v.size ? `, Size ${v.size}` : ""}
                           </p>
                           <p className="text-xs text-ink-500">
                             {formatNaira(v.price)}
@@ -122,7 +141,7 @@ export default function AdminDashboard() {
                         )}
                         <button
                           onClick={() =>
-                            updateVariantStock(p.id, v.id, v.stock - 1)
+                            handleStockChange(p.id, v.id, v.stock - 1)
                           }
                           className="w-6 h-6 rounded bg-white border border-gold-300 text-gold-700 font-bold text-xs"
                         >
@@ -137,7 +156,7 @@ export default function AdminDashboard() {
                         </span>
                         <button
                           onClick={() =>
-                            updateVariantStock(p.id, v.id, v.stock + 1)
+                            handleStockChange(p.id, v.id, v.stock + 1)
                           }
                           className="w-6 h-6 rounded bg-white border border-gold-300 text-gold-700 font-bold text-xs"
                         >

@@ -260,6 +260,10 @@ img, video {
   display: none;
 }
 
+.visible {
+  visibility: visible;
+}
+
 .absolute {
   position: absolute;
 }
@@ -321,6 +325,10 @@ img, video {
   margin-top: .25rem;
 }
 
+.mt-16 {
+  margin-top: 4rem;
+}
+
 .mt-2 {
   margin-top: .5rem;
 }
@@ -337,16 +345,16 @@ img, video {
   margin-top: 1.25rem;
 }
 
-.mt-6 {
-  margin-top: 1.5rem;
-}
-
 .block {
   display: block;
 }
 
 .flex {
   display: flex;
+}
+
+.table {
+  display: table;
 }
 
 .grid {
@@ -405,6 +413,10 @@ img, video {
   height: 100%;
 }
 
+.max-h-72 {
+  max-height: 18rem;
+}
+
 .w-10 {
   width: 2.5rem;
 }
@@ -461,8 +473,8 @@ img, video {
   max-width: 72rem;
 }
 
-.max-w-md {
-  max-width: 28rem;
+.max-w-sm {
+  max-width: 24rem;
 }
 
 .max-w-xl {
@@ -486,6 +498,10 @@ img, video {
   cursor: not-allowed;
 }
 
+.cursor-pointer {
+  cursor: pointer;
+}
+
 .resize-none {
   resize: none;
 }
@@ -500,10 +516,6 @@ img, video {
 
 .grid-cols-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.grid-cols-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .grid-cols-\[3\.5rem_1fr\] {
@@ -522,12 +534,24 @@ img, video {
   align-items: center;
 }
 
+.items-baseline {
+  align-items: baseline;
+}
+
+.justify-end {
+  justify-content: flex-end;
+}
+
 .justify-center {
   justify-content: center;
 }
 
 .justify-between {
   justify-content: space-between;
+}
+
+.gap-1\.5 {
+  gap: .375rem;
 }
 
 .gap-2 {
@@ -580,8 +604,23 @@ img, video {
   margin-bottom: calc(1.25rem * var(--tw-space-y-reverse));
 }
 
+.divide-y > :not([hidden]) ~ :not([hidden]) {
+  --tw-divide-y-reverse: 0;
+  border-top-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
+  border-bottom-width: calc(1px * var(--tw-divide-y-reverse));
+}
+
+.divide-gold-100 > :not([hidden]) ~ :not([hidden]) {
+  --tw-divide-opacity: 1;
+  border-color: rgb(245 233 200 / var(--tw-divide-opacity, 1));
+}
+
 .overflow-hidden {
   overflow: hidden;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
 }
 
 .truncate {
@@ -661,6 +700,11 @@ img, video {
   border-color: rgb(184 134 11 / var(--tw-border-opacity, 1));
 }
 
+.border-green-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(187 247 208 / var(--tw-border-opacity, 1));
+}
+
 .border-ink-500\/20 {
   border-color: #6b624833;
 }
@@ -705,6 +749,11 @@ img, video {
   background-color: rgb(150 105 10 / var(--tw-bg-opacity, 1));
 }
 
+.bg-green-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(240 253 244 / var(--tw-bg-opacity, 1));
+}
+
 .bg-green-600 {
   --tw-bg-opacity: 1;
   background-color: rgb(22 163 74 / var(--tw-bg-opacity, 1));
@@ -712,6 +761,11 @@ img, video {
 
 .bg-ink-500\/30 {
   background-color: #6b62484d;
+}
+
+.bg-red-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 242 242 / var(--tw-bg-opacity, 1));
 }
 
 .bg-red-600 {
@@ -739,6 +793,11 @@ img, video {
 
 .p-5 {
   padding: 1.25rem;
+}
+
+.px-2\.5 {
+  padding-left: .625rem;
+  padding-right: .625rem;
 }
 
 .px-3 {
@@ -786,6 +845,11 @@ img, video {
   padding-bottom: .75rem;
 }
 
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
 .py-6 {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
@@ -828,11 +892,6 @@ img, video {
   line-height: 2rem;
 }
 
-.text-3xl {
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-}
-
 .text-\[10px\] {
   font-size: 10px;
 }
@@ -865,12 +924,20 @@ img, video {
   font-weight: 700;
 }
 
+.font-light {
+  font-weight: 300;
+}
+
 .font-normal {
   font-weight: 400;
 }
 
 .font-semibold {
   font-weight: 600;
+}
+
+.italic {
+  font-style: italic;
 }
 
 .leading-none {
@@ -904,6 +971,16 @@ img, video {
 .text-gold-700 {
   --tw-text-opacity: 1;
   color: rgb(115 79 8 / var(--tw-text-opacity, 1));
+}
+
+.text-green-700 {
+  --tw-text-opacity: 1;
+  color: rgb(21 128 61 / var(--tw-text-opacity, 1));
+}
+
+.text-green-800 {
+  --tw-text-opacity: 1;
+  color: rgb(22 101 52 / var(--tw-text-opacity, 1));
 }
 
 .text-ink-500 {
@@ -1052,6 +1129,14 @@ body {
 .focus\:border-gold-500:focus {
   --tw-border-opacity: 1;
   border-color: rgb(184 134 11 / var(--tw-border-opacity, 1));
+}
+
+.disabled\:opacity-50:disabled {
+  opacity: .5;
+}
+
+.disabled\:opacity-60:disabled {
+  opacity: .6;
 }
 
 @media (min-width: 640px) {

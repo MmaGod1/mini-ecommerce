@@ -1,10 +1,25 @@
 "use client";
 
-import { useShop } from "@/context/ShopContext";
+import { useEffect, useState } from "react";
 import { formatNaira } from "@/lib/pricing";
+import { Order } from "@/lib/types";
 
 export default function AdminOrdersPage() {
-  const { orders } = useShop();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/orders");
+      const data = await res.json();
+      if (res.ok) setOrders(data);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return <p className="text-ink-500 text-sm">Loading orders...</p>;
+  }
 
   if (orders.length === 0) {
     return (
@@ -69,12 +84,19 @@ export default function AdminOrdersPage() {
                     )}
                   </div>
                   <span className="flex-1 text-sm">
-                    {item.productName} &middot; {item.color} &times;{" "}
+                    {item.productName} &middot; {item.color}
+                    {item.size ? `, Size ${item.size}` : ""} &times;{" "}
                     {item.quantity}
                     {item.discountPercent > 0 && (
                       <span className="text-gold-600">
                         {" "}
                         ({item.discountPercent}% off)
+                      </span>
+                    )}
+                    {item.bundleDiscountPercent > 0 && (
+                      <span className="text-gold-600">
+                        {" "}
+                        (+{item.bundleDiscountPercent}% bundle deal)
                       </span>
                     )}
                   </span>

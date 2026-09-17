@@ -1,24 +1,32 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
-import { Product, Order, OrderItem, CartLine } from "@/lib/types";
-import { initialProducts } from "@/lib/data";
-import { calculateLineTotal } from "@/lib/pricing";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { Product, CartLine } from "@/lib/types";
+import { supabase } from "@/lib/supabaseClient";
+import { mapProductRow } from "@/lib/mappers";
 
 type ShopContextType = {
   products: Product[];
   categories: string[];
   cart: CartLine[];
-  orders: Order[];
-  addProduct: (p: Product) => void;
-  updateProduct: (p: Product) => void;
-  deleteProduct: (productId: string) => void;
+  loading: boolean;
+  productsError: string | null;
+  refreshProducts: () => Promise<void>;
+  addProduct: (p: Product) => Promise<void>;
+  updateProduct: (p: Product) => Promise<void>;
+  deleteProduct: (productId: string) => Promise<void>;
   updateVariantStock: (
     productId: string,
     variantId: string,
     newStock: number
-  ) => void;
-  addCategory: (name: string) => void;
+  ) => Promise<void>;
+  addCategory: (name: string) => Promise<void>;
   addToCart: (line: CartLine) => void;
   removeFromCart: (variantId: string) => void;
   clearCart: () => void;
@@ -26,64 +34,170 @@ type ShopContextType = {
     location: string;
     phone: string;
     comments?: string;
-  }) => Order;
+    paystackReference: string;
+  }) => Promise<{ id: string }>;
 };
 
 const ShopContext = createContext<ShopContextType | null>(null);
 
-const DEFAULT_CATEGORIES = ["Clothing", "Footwear", "Bags"];
+const CART_STORAGE_KEY = "yourshop-cart";
 
 export function ShopProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [cartHydrated, setCartHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
-  function addCategory(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setCategories((prev) =>
-      prev.some((c) => c.toLowerCase() === trimmed.toLowerCase())
-        ? prev
-        : [...prev, trimmed]
-    );
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function addProduct(p: Product) {
-    setProducts((prev) => [...prev, p]);
-    addCategory(p.category);
+  async function refreshProducts() {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*, variants(*), discount_tiers(*)")
+      .order("created_at", { ascending: true });
+
+    if (!error && data) {
+      setProducts(data.map(mapProductRow));
+      setProductsError(null);
+      return;
+    }
+
+    // Transient network blips happen, so try once more after a short
+    // pause before treating this as a real failure worth telling the
+    // person about.
+    await sleep(800);
+    const retry = await supabase
+      .from("products")
+      .select("*, variants(*), discount_tiers(*)")
+      .order("created_at", { ascending: true });
+
+    if (!retry.error && retry.data) {
+      setProducts(retry.data.map(mapProductRow));
+      setProductsError(null);
+    } else {
+      console.error(
+        "[ShopContext] Could not load products after retrying:",
+        retry.error?.message ?? error?.message
+      );
+      setProductsError(
+        "Couldn't load products, check your connection and try again."
+      );
+    }
   }
 
-  function updateProduct(updated: Product) {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updated.id ? updated : p))
-    );
-    addCategory(updated.category);
+  async function refreshCategories() {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("name")
+      .order("name", { ascending: true });
+
+    if (!error && data) {
+      setCategories(data.map((c) => c.name));
+    }
   }
 
-  function deleteProduct(productId: string) {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
+  // Load any cart saved from a previous visit. cartHydrated starts
+  // false, so the save-effect below is guaranteed to skip its very
+  // first run rather than overwrite a save it hasn't read yet. Using
+  // STATE (not a ref) for that flag is what actually matters here:
+  // setCart and setCartHydrated below are called together and become
+  // visible on the same next render, so the save-effect can never see
+  // "hydrated" without cart having already caught up alongside it.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CART_STORAGE_KEY);
+      if (saved) setCart(JSON.parse(saved));
+    } catch {
+      // Corrupt or inaccessible storage, just start with an empty cart.
+    } finally {
+      setCartHydrated(true);
+    }
+  }, []);
+
+  // Persist the cart on every change, so refreshing the page, or
+  // closing and reopening the tab, doesn't lose what's in it.
+  useEffect(() => {
+    if (!cartHydrated) return;
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {
+      // Ignore storage errors (e.g. private browsing quota limits).
+    }
+  }, [cart, cartHydrated]);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await Promise.all([refreshProducts(), refreshCategories()]);
+      setLoading(false);
+    })();
+  }, []);
+
+  async function throwIfNotOk(res: Response) {
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        throw new Error("Your admin session has expired. Please log in again.");
+      }
+      throw new Error(data.error ?? "Something went wrong. Please try again.");
+    }
   }
 
-  function updateVariantStock(
+  async function addProduct(p: Product) {
+    const res = await fetch("/api/admin/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    });
+    await throwIfNotOk(res);
+    await Promise.all([refreshProducts(), refreshCategories()]);
+  }
+
+  async function updateProduct(p: Product) {
+    const res = await fetch(`/api/admin/products/${p.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    });
+    await throwIfNotOk(res);
+    await Promise.all([refreshProducts(), refreshCategories()]);
+  }
+
+  async function deleteProduct(productId: string) {
+    const res = await fetch(`/api/admin/products/${productId}`, {
+      method: "DELETE",
+    });
+    await throwIfNotOk(res);
+    await refreshProducts();
+  }
+
+  async function updateVariantStock(
     productId: string,
     variantId: string,
     newStock: number
   ) {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id !== productId
-          ? p
-          : {
-              ...p,
-              variants: p.variants.map((v) =>
-                v.id === variantId
-                  ? { ...v, stock: Math.max(0, newStock) }
-                  : v
-              ),
-            }
-      )
-    );
+    const res = await fetch(`/api/admin/variants/${variantId}/stock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stock: newStock }),
+    });
+    await throwIfNotOk(res);
+    await refreshProducts();
+  }
+
+  async function addCategory(name: string) {
+    if (!name.trim()) return;
+    const res = await fetch("/api/admin/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    await throwIfNotOk(res);
+    await refreshCategories();
   }
 
   function addToCart(line: CartLine) {
@@ -115,51 +229,33 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     setCart([]);
   }
 
-  function placeOrder(details: {
+  async function placeOrder(details: {
     location: string;
     phone: string;
     comments?: string;
-  }): Order {
-    // Build order line items with their discount applied.
-    const items: OrderItem[] = cart.map((line) => {
-      const product = products.find((p) => p.id === line.productId);
-      const { total, discountPercent } = calculateLineTotal(
-        line.unitPrice,
-        line.quantity,
-        product?.discountTiers
-      );
-      return { ...line, discountPercent, lineTotal: total };
+    paystackReference: string;
+  }): Promise<{ id: string }> {
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: cart,
+        location: details.location,
+        phone: details.phone,
+        comments: details.comments,
+        paystackReference: details.paystackReference,
+      }),
     });
 
-    // Decrement stock per variant, this is the "sold out at zero" logic.
-    setProducts((prev) =>
-      prev.map((product) => ({
-        ...product,
-        variants: product.variants.map((v) => {
-          const match = cart.find((c) => c.variantId === v.id);
-          if (match) {
-            return { ...v, stock: Math.max(0, v.stock - match.quantity) };
-          }
-          return v;
-        }),
-      }))
-    );
+    const data = await res.json();
 
-    const total = items.reduce((sum, i) => sum + i.lineTotal, 0);
-    const order: Order = {
-      id: `#${Math.floor(10000 + Math.random() * 90000)}`,
-      items,
-      total,
-      location: details.location,
-      phone: details.phone,
-      comments: details.comments,
-      createdAt: new Date().toISOString(),
-      status: "Paid",
-    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "Could not place order");
+    }
 
-    setOrders((prev) => [order, ...prev]);
     clearCart();
-    return order;
+    await refreshProducts();
+    return { id: data.id as string };
   }
 
   return (
@@ -168,7 +264,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         products,
         categories,
         cart,
-        orders,
+        loading,
+        productsError,
+        refreshProducts,
         addProduct,
         updateProduct,
         deleteProduct,

@@ -4,13 +4,17 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { Variant, DiscountTier, Product } from "@/lib/types";
+import { uploadImage } from "@/lib/uploadImage";
 
 type VariantRow = {
   id?: string;
   color: string;
+  size: string;
   price: string;
   stock: string;
-  imageUrl?: string;
+  imageUrl?: string; // existing photo URL, already uploaded
+  imageFile?: File; // newly picked photo, not uploaded yet
+  imagePreview?: string; // what to show right now (existing or local preview)
 };
 type TierRow = { minQty: string; discountPercent: string };
 
@@ -23,13 +27,15 @@ function slugify(name: string) {
 }
 
 function toVariantRows(product?: Product): VariantRow[] {
-  if (!product) return [{ color: "", price: "", stock: "" }];
+  if (!product) return [{ color: "", size: "", price: "", stock: "" }];
   return product.variants.map((v) => ({
     id: v.id,
     color: v.color,
+    size: v.size ?? "",
     price: String(v.price),
     stock: String(v.stock),
     imageUrl: v.imageUrl,
+    imagePreview: v.imageUrl,
   }));
 }
 
@@ -65,9 +71,13 @@ export default function ProductForm({
   const [description, setDescription] = useState(
     existingProduct?.description ?? ""
   );
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(
+
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [mainImagePreview, setMainImagePreview] = useState<string | null>(
     existingProduct?.imageUrl ?? null
   );
+  const [mainImageRemoved, setMainImageRemoved] = useState(false);
+
   const [variants, setVariants] = useState<VariantRow[]>(
     toVariantRows(existingProduct)
   );
@@ -75,8 +85,14 @@ export default function ProductForm({
     Boolean(existingProduct?.discountTiers?.length)
   );
   const [tiers, setTiers] = useState<TierRow[]>(toTierRows(existingProduct));
+  const [saving, setSaving] = useState(false);
 
-  function updateVariant(i: number, field: keyof VariantRow, value: string) {
+  function updateVariant(
+    i: number,
+    field: keyof VariantRow,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    value: any
+  ) {
     setVariants((prev) =>
       prev.map((v, idx) => (idx === i ? { ...v, [field]: value } : v))
     );
@@ -91,9 +107,15 @@ export default function ProductForm({
   function handleMainImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImageDataUrl(reader.result as string);
-    reader.readAsDataURL(file);
+    setMainImageFile(file);
+    setMainImagePreview(URL.createObjectURL(file));
+    setMainImageRemoved(false);
+  }
+
+  function handleRemoveMainImage() {
+    setMainImageFile(null);
+    setMainImagePreview(null);
+    setMainImageRemoved(true);
   }
 
   function handleVariantImageChange(
@@ -102,10 +124,8 @@ export default function ProductForm({
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () =>
-      updateVariant(i, "imageUrl", reader.result as string);
-    reader.readAsDataURL(file);
+    updateVariant(i, "imageFile", file);
+    updateVariant(i, "imagePreview", URL.createObjectURL(file));
   }
 
   function confirmNewCategory() {
@@ -119,17 +139,18 @@ export default function ProductForm({
     setAddingCategory(false);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!existingProduct) return;
     const confirmed = window.confirm(
       `Delete "${existingProduct.name}"? This can't be undone.`
     );
     if (!confirmed) return;
-    deleteProduct(existingProduct.id);
+    setSaving(true);
+    await deleteProduct(existingProduct.id);
     router.push("/admin");
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const finalCategory = addingCategory ? newCategoryName.trim() : category;
 
     if (
@@ -143,42 +164,68 @@ export default function ProductForm({
       return;
     }
 
-    const productVariants: Variant[] = variants.map((v, i) => ({
-      id: v.id ?? `${slugify(name)}-${slugify(v.color)}-${i}`,
-      color: v.color,
-      price: Number(v.price) || 0,
-      stock: Number(v.stock) || 0,
-      imageUrl: v.imageUrl,
-    }));
+    setSaving(true);
+    try {
+      let finalMainImageUrl: string | undefined = existingProduct?.imageUrl;
+      if (mainImageFile) {
+        finalMainImageUrl = await uploadImage(mainImageFile);
+      } else if (mainImageRemoved) {
+        finalMainImageUrl = undefined;
+      }
 
-    let discountTiers: DiscountTier[] | undefined = undefined;
-    if (useDiscount) {
-      const validTiers = tiers
-        .filter((t) => t.minQty && t.discountPercent)
-        .map((t) => ({
-          minQty: Number(t.minQty),
-          discountPercent: Number(t.discountPercent),
-        }));
-      if (validTiers.length > 0) discountTiers = validTiers;
+      const productVariants: Variant[] = [];
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i];
+        let variantImageUrl = v.imageUrl;
+        if (v.imageFile) {
+          variantImageUrl = await uploadImage(v.imageFile);
+        }
+        productVariants.push({
+          id: v.id ?? `${slugify(name)}-${slugify(v.color)}-${slugify(v.size || String(i))}`,
+          color: v.color,
+          size: v.size.trim() || undefined,
+          price: Number(v.price) || 0,
+          stock: Number(v.stock) || 0,
+          imageUrl: variantImageUrl,
+        });
+      }
+
+      let discountTiers: DiscountTier[] | undefined = undefined;
+      if (useDiscount) {
+        const validTiers = tiers
+          .filter((t) => t.minQty && t.discountPercent)
+          .map((t) => ({
+            minQty: Number(t.minQty),
+            discountPercent: Number(t.discountPercent),
+          }));
+        if (validTiers.length > 0) discountTiers = validTiers;
+      }
+
+      const product: Product = {
+        id: existingProduct?.id ?? `p-${Date.now()}`,
+        slug: existingProduct?.slug ?? slugify(name),
+        name,
+        category: finalCategory,
+        description,
+        imageUrl: finalMainImageUrl,
+        variants: productVariants,
+        discountTiers,
+      };
+
+      if (isEditing) {
+        await updateProduct(product);
+      } else {
+        await addProduct(product);
+      }
+      router.push("/admin");
+    } catch (err) {
+      alert(
+        "Something went wrong saving the product: " +
+          (err instanceof Error ? err.message : "unknown error")
+      );
+    } finally {
+      setSaving(false);
     }
-
-    const product: Product = {
-      id: existingProduct?.id ?? `p-${Date.now()}`,
-      slug: existingProduct?.slug ?? slugify(name),
-      name,
-      category: finalCategory,
-      description,
-      imageUrl: imageDataUrl ?? undefined,
-      variants: productVariants,
-      discountTiers,
-    };
-
-    if (isEditing) {
-      updateProduct(product);
-    } else {
-      addProduct(product);
-    }
-    router.push("/admin");
   }
 
   return (
@@ -190,7 +237,8 @@ export default function ProductForm({
         {isEditing && (
           <button
             onClick={handleDelete}
-            className="text-sm font-semibold text-red-600 hover:underline"
+            disabled={saving}
+            className="text-sm font-semibold text-red-600 hover:underline disabled:opacity-50"
           >
             Delete Product
           </button>
@@ -283,10 +331,10 @@ export default function ProductForm({
               onClick={() => mainImageInputRef.current?.click()}
               className="w-28 h-28 rounded-lg border-2 border-dashed border-gold-400 bg-gold-50 flex flex-col items-center justify-center text-gold-600 hover:bg-gold-100 overflow-hidden"
             >
-              {imageDataUrl ? (
+              {mainImagePreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={imageDataUrl}
+                  src={mainImagePreview}
                   alt="Product preview"
                   className="w-full h-full object-cover"
                 />
@@ -304,9 +352,9 @@ export default function ProductForm({
               onChange={handleMainImageChange}
               className="hidden"
             />
-            {imageDataUrl && (
+            {mainImagePreview && (
               <button
-                onClick={() => setImageDataUrl(null)}
+                onClick={handleRemoveMainImage}
                 className="text-xs text-red-600 hover:underline"
               >
                 Remove photo
@@ -329,7 +377,7 @@ export default function ProductForm({
               onClick={() =>
                 setVariants((prev) => [
                   ...prev,
-                  { color: "", price: "", stock: "" },
+                  { color: "", size: "", price: "", stock: "" },
                 ])
               }
               className="text-xs font-semibold text-gold-600 hover:underline"
@@ -349,10 +397,10 @@ export default function ProductForm({
                   className="w-14 h-14 rounded-md border-2 border-dashed border-gold-400 bg-white flex items-center justify-center overflow-hidden shrink-0"
                   title="Optional photo for this colour"
                 >
-                  {v.imageUrl ? (
+                  {v.imagePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={v.imageUrl}
+                      src={v.imagePreview}
                       alt={v.color}
                       className="w-full h-full object-cover"
                     />
@@ -370,47 +418,59 @@ export default function ProductForm({
                   className="hidden"
                 />
 
-                <div className="grid grid-cols-4 gap-2 items-center">
-                  <input
-                    value={v.color}
-                    onChange={(e) =>
-                      updateVariant(i, "color", e.target.value)
-                    }
-                    placeholder="Colour"
-                    className="col-span-2 rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
-                  />
-                  <input
-                    value={v.price}
-                    onChange={(e) =>
-                      updateVariant(i, "price", e.target.value)
-                    }
-                    placeholder="Price (₦)"
-                    type="number"
-                    className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
-                  />
-                  <div className="flex gap-2">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <input
-                      value={v.stock}
+                      value={v.color}
                       onChange={(e) =>
-                        updateVariant(i, "stock", e.target.value)
+                        updateVariant(i, "color", e.target.value)
                       }
-                      placeholder="Stock"
-                      type="number"
-                      className="w-full rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                      placeholder="Colour"
+                      className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                     />
-                    {variants.length > 1 && (
-                      <button
-                        onClick={() =>
-                          setVariants((prev) =>
-                            prev.filter((_, idx) => idx !== i)
-                          )
+                    <input
+                      value={v.size}
+                      onChange={(e) =>
+                        updateVariant(i, "size", e.target.value)
+                      }
+                      placeholder="Size (optional)"
+                      className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      value={v.price}
+                      onChange={(e) =>
+                        updateVariant(i, "price", e.target.value)
+                      }
+                      placeholder="Price (₦)"
+                      type="number"
+                      className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        value={v.stock}
+                        onChange={(e) =>
+                          updateVariant(i, "stock", e.target.value)
                         }
-                        className="text-red-600 text-sm font-bold"
+                        placeholder="Stock"
+                        type="number"
+                        className="w-full rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                      />
+                      {variants.length > 1 && (
+                        <button
+                          onClick={() =>
+                            setVariants((prev) =>
+                              prev.filter((_, idx) => idx !== i)
+                            )
+                          }
+                          className="text-red-600 text-sm font-bold"
                         title="Remove colour"
                       >
                         &times;
                       </button>
                     )}
+                  </div>
                   </div>
                 </div>
               </div>
@@ -490,9 +550,14 @@ export default function ProductForm({
 
         <button
           onClick={handleSubmit}
-          className="w-full py-3 rounded-full font-bold text-white bg-gold-600 hover:bg-gold-700"
+          disabled={saving}
+          className="w-full py-3 rounded-full font-bold text-white bg-gold-600 hover:bg-gold-700 disabled:opacity-60"
         >
-          {isEditing ? "Save Changes" : "Save Product"}
+          {saving
+            ? "Saving..."
+            : isEditing
+            ? "Save Changes"
+            : "Save Product"}
         </button>
       </div>
     </div>

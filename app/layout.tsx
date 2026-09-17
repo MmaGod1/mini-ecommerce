@@ -4,8 +4,8 @@ import { ShopProvider } from "@/context/ShopContext";
 import Header from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "YourShop",
-  description: "Clothing, footwear, and bags online store",
+  title: "Chery's Closet",
+  description: "Clothing, footwear, bags, and many more online store",
 };
 
 export default function RootLayout({

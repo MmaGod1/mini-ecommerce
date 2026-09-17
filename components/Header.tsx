@@ -25,8 +25,13 @@ export default function Header() {
   return (
     <header className="bg-gold-500 text-white">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="text-lg font-bold tracking-wide">
-          YourShop
+        <Link href="/" className="flex items-baseline gap-1.5">
+          <span className="text-xl font-bold text-white tracking-wide">
+            Chery's
+          </span>
+          <span className="text-lg font-light italic text-gold-100">
+            Closet
+          </span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-semibold">
           <Link href="/" className={tabClass(isShop)}>

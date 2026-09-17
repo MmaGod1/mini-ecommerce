@@ -1,8 +1,11 @@
-// A single colour option for a product. Each colour tracks its own stock,
-// so selling out "Blue" does not affect "Red" of the same product.
+// A single colour+size option for a product. Each colour, and each size
+// within a colour, tracks its own stock, so "Black, size 40" can sell out
+// while "Black, size 42" or "Red, size 40" stay available. Size is
+// optional, products that don't need it (bags, caps) just leave it blank.
 export type Variant = {
   id: string;
   color: string;
+  size?: string;
   price: number;
   stock: number;
   imageUrl?: string;
@@ -28,11 +31,24 @@ export type Product = {
   discountTiers?: DiscountTier[];
 };
 
+// A cross-product bundle deal, e.g. "buy any 5 of these hand-picked
+// products, get 10% off". Separate from DiscountTier, which only ever
+// looks at quantity of ONE product. A bundle looks at how many DISTINCT
+// eligible products are in the cart, not how many of any single one.
+export type Bundle = {
+  id: string;
+  name: string;
+  minItems: number;
+  discountPercent: number;
+  productIds: string[];
+};
+
 export type CartLine = {
   productId: string;
   productName: string;
   variantId: string;
   color: string;
+  size?: string;
   unitPrice: number;
   quantity: number;
   imageUrl?: string;
@@ -40,6 +56,7 @@ export type CartLine = {
 
 export type OrderItem = CartLine & {
   discountPercent: number;
+  bundleDiscountPercent: number;
   lineTotal: number;
 };
 

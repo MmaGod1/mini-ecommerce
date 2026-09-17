@@ -5,7 +5,8 @@ import { useShop } from "@/context/ShopContext";
 import ProductCard from "@/components/ProductCard";
 
 export default function HomePage() {
-  const { products, categories } = useShop();
+  const { products, categories, loading, productsError, refreshProducts } =
+    useShop();
   const [category, setCategory] = useState<string>("All");
   const [query, setQuery] = useState("");
 
@@ -49,9 +50,21 @@ export default function HomePage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {productsError && products.length === 0 && !loading ? (
+        <div className="text-center py-10">
+          <p className="text-red-600 text-sm font-semibold mb-2">
+            {productsError}
+          </p>
+          <button
+            onClick={() => refreshProducts()}
+            className="px-4 py-2 rounded-full text-sm font-semibold bg-gold-600 text-white hover:bg-gold-700"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : filtered.length === 0 ? (
         <p className="text-ink-500 text-sm text-center py-10">
-          No products match your search.
+          {loading ? "Loading products..." : "No products match your search."}
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

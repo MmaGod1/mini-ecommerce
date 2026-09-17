@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { calculateLineTotal, formatNaira } from "@/lib/pricing";
@@ -8,19 +8,59 @@ import { calculateLineTotal, formatNaira } from "@/lib/pricing";
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { products, cart, addToCart } = useShop();
+  const { products, cart, addToCart, productsError, refreshProducts, loading } =
+    useShop();
 
   const product = products.find((p) => p.slug === slug);
 
-  const [selectedVariantId, setSelectedVariantId] = useState(
-    product?.variants.find((v) => v.stock > 0)?.id ?? product?.variants[0]?.id
+  // Only show a size picker at all if at least one variant actually uses one.
+  const hasSizes = Boolean(product?.variants.some((v) => v.size));
+  const distinctColors = Array.from(
+    new Set((product?.variants ?? []).map((v) => v.color))
+  );
+
+  const firstAvailable =
+    product?.variants.find((v) => v.stock > 0) ?? product?.variants[0];
+
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(
+    undefined
+  );
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(
+    undefined
   );
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
-  const variant = product?.variants.find((v) => v.id === selectedVariantId);
+  // On a hard reload, products haven't loaded yet during the first
+  // render, so firstAvailable is undefined at that point and the
+  // useState above starts as undefined. This fills in the real
+  // selection once product data actually arrives, only if the person
+  // hasn't already picked something themselves.
+  useEffect(() => {
+    if (selectedColor === undefined && firstAvailable) {
+      setSelectedColor(firstAvailable.color);
+      setSelectedSize(firstAvailable.size);
+    }
+  }, [firstAvailable, selectedColor]);
 
-  // How many of this exact colour are already sitting in the cart,
+  const sizesForColor = (product?.variants ?? []).filter(
+    (v) => v.color === selectedColor
+  );
+
+  const variant = (product?.variants ?? []).find(
+    (v) =>
+      v.color === selectedColor && (v.size ?? "") === (selectedSize ?? "")
+  );
+
+  function handleColorSelect(color: string) {
+    setSelectedColor(color);
+    const options = (product?.variants ?? []).filter((v) => v.color === color);
+    const preferred = options.find((v) => v.stock > 0) ?? options[0];
+    setSelectedSize(preferred?.size);
+    setQuantity(1);
+  }
+
+  // How many of this exact colour+size are already sitting in the cart,
   // so we never let someone add more than what's actually in stock.
   const alreadyInCart =
     cart.find((c) => c.variantId === variant?.id)?.quantity ?? 0;
@@ -34,6 +74,24 @@ export default function ProductDetailPage() {
   }, [variant, quantity, product]);
 
   if (!product || !variant) {
+    if (loading) {
+      return <p className="text-ink-500 text-sm">Loading...</p>;
+    }
+    if (productsError && products.length === 0) {
+      return (
+        <div className="text-center py-10">
+          <p className="text-red-600 text-sm font-semibold mb-2">
+            {productsError}
+          </p>
+          <button
+            onClick={() => refreshProducts()}
+            className="px-4 py-2 rounded-full text-sm font-semibold bg-gold-600 text-white hover:bg-gold-700"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
     return <p className="text-ink-700">Product not found.</p>;
   }
 
@@ -49,6 +107,7 @@ export default function ProductDetailPage() {
       productName: product.name,
       variantId: variant.id,
       color: variant.color,
+      size: variant.size,
       unitPrice: variant.price,
       quantity: qtyToAdd,
       imageUrl: variant.imageUrl || product.imageUrl,
@@ -84,36 +143,69 @@ export default function ProductDetailPage() {
         <p className="text-ink-500 text-sm mt-1">{product.category}</p>
         <p className="text-ink-700 mt-3 text-sm">{product.description}</p>
 
-        {/* Colour variant picker */}
+        {/* Colour picker */}
         <div className="mt-5">
           <p className="text-sm font-semibold text-ink-900 mb-2">Colour</p>
           <div className="flex flex-wrap gap-2">
-            {product.variants.map((v) => {
-              const soldOut = v.stock === 0;
-              const isSelected = v.id === selectedVariantId;
+            {distinctColors.map((color) => {
+              const colorVariants = product.variants.filter(
+                (v) => v.color === color
+              );
+              const colorSoldOut = colorVariants.every((v) => v.stock === 0);
+              const isSelected = color === selectedColor;
               return (
                 <button
-                  key={v.id}
-                  disabled={soldOut}
-                  onClick={() => {
-                    setSelectedVariantId(v.id);
-                    setQuantity(1);
-                  }}
+                  key={color}
+                  disabled={colorSoldOut}
+                  onClick={() => handleColorSelect(color)}
                   className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                    soldOut
+                    colorSoldOut
                       ? "border-ink-500/20 text-ink-500/50 line-through cursor-not-allowed"
                       : isSelected
                       ? "bg-gold-500 border-gold-500 text-white"
                       : "border-gold-300 text-gold-700 hover:bg-gold-50"
                   }`}
                 >
-                  {v.color}
-                  {soldOut ? " (Sold Out)" : ""}
+                  {color}
+                  {colorSoldOut ? " (Sold Out)" : ""}
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* Size picker, only shown if this product actually uses sizes */}
+        {hasSizes && (
+          <div className="mt-4">
+            <p className="text-sm font-semibold text-ink-900 mb-2">Size</p>
+            <div className="flex flex-wrap gap-2">
+              {sizesForColor.map((v) => {
+                const soldOut = v.stock === 0;
+                const isSelected = (v.size ?? "") === (selectedSize ?? "");
+                return (
+                  <button
+                    key={v.id}
+                    disabled={soldOut}
+                    onClick={() => {
+                      setSelectedSize(v.size);
+                      setQuantity(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                      soldOut
+                        ? "border-ink-500/20 text-ink-500/50 line-through cursor-not-allowed"
+                        : isSelected
+                        ? "bg-gold-500 border-gold-500 text-white"
+                        : "border-gold-300 text-gold-700 hover:bg-gold-50"
+                    }`}
+                  >
+                    {v.size || "One size"}
+                    {soldOut ? " (Sold Out)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Price + stock */}
         <div className="mt-5">
@@ -201,6 +293,9 @@ export default function ProductDetailPage() {
                   ({pricing.discountPercent}% off applied)
                 </span>
               )}
+            </p>
+            <p className="text-xs text-ink-500 mt-1">
+              Any eligible bundle discount is applied at checkout.
             </p>
           </div>
         )}
