@@ -38,10 +38,14 @@ export default function AdminLoginPage() {
         className="bg-white rounded-lg card-shadow p-5 space-y-4"
       >
         <div>
-          <label className="block text-sm font-semibold text-gold-700 mb-1">
+          <label
+            htmlFor="admin-email"
+            className="block text-sm font-semibold text-gold-700 mb-1"
+          >
             Email
           </label>
           <input
+            id="admin-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -50,10 +54,14 @@ export default function AdminLoginPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-gold-700 mb-1">
+          <label
+            htmlFor="admin-password"
+            className="block text-sm font-semibold text-gold-700 mb-1"
+          >
             Password
           </label>
           <input
+            id="admin-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

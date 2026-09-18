@@ -22,16 +22,16 @@ export default function Header() {
   }, [pathname]);
 
   function desktopTabClass(active: boolean) {
-    return `relative pb-1 hover:text-gold-100 transition-colors ${
+    return `relative pb-1 hover:text-white transition-colors ${
       active
         ? "text-white after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[3px] after:h-[3px] after:rounded-full after:bg-white"
-        : "text-gold-100"
+        : "text-gold-50"
     }`;
   }
 
   function mobileTabClass(active: boolean) {
     return `block px-4 py-3 text-base font-semibold rounded-lg ${
-      active ? "bg-gold-600 text-white" : "text-gold-100 hover:bg-gold-600/50"
+      active ? "bg-gold-700 text-white" : "text-gold-50 hover:bg-gold-700/50"
     }`;
   }
 
@@ -42,13 +42,13 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-gold-500 text-white relative">
+    <header className="bg-gold-600 text-white relative">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-baseline gap-1.5">
           <span className="text-xl font-bold text-white tracking-wide">
             Chery&apos;s
           </span>
-          <span className="text-lg font-light italic text-gold-100">
+          <span className="text-lg font-light italic text-gold-50">
             Closet
           </span>
         </Link>
@@ -65,7 +65,7 @@ export default function Header() {
         {/* Hamburger button, only shown on small screens */}
         <button
           onClick={() => setMenuOpen((open) => !open)}
-          className="sm:hidden w-9 h-9 flex items-center justify-center rounded-md hover:bg-gold-600"
+          className="sm:hidden w-9 h-9 flex items-center justify-center rounded-md hover:bg-gold-700"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
         >
@@ -83,7 +83,7 @@ export default function Header() {
 
       {/* Mobile dropdown menu */}
       {menuOpen && (
-        <nav className="sm:hidden absolute top-full left-0 right-0 bg-gold-500 border-t border-gold-400 px-4 py-3 space-y-1 shadow-lg z-50">
+        <nav className="sm:hidden absolute top-full left-0 right-0 bg-gold-600 border-t border-gold-400 px-4 py-3 space-y-1 shadow-lg z-50">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className={mobileTabClass(link.active)}>
               {link.label}

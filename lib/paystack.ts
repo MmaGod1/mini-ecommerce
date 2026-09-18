@@ -34,7 +34,6 @@ export async function openPaystackCheckout(options: {
   await loadPaystackScript();
 
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-
   if (!publicKey) {
     throw new Error("We couldn't start the payment. Please try again.");
   }
