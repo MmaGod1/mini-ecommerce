@@ -46,7 +46,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-baseline gap-1.5">
           <span className="text-xl font-bold text-white tracking-wide">
-            Chery&apos;s
+            Cherry&apos;s
           </span>
           <span className="text-lg font-light italic text-gold-50">
             Closet

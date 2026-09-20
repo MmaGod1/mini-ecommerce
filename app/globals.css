@@ -10,3 +10,15 @@ body {
 .card-shadow {
   box-shadow: 0 4px 14px rgba(184, 134, 11, 0.12);
 }
+
+/* Hides the scrollbar on horizontally-scrollable rows (category chips)
+   while keeping the actual scrolling fully functional. Users on mobile
+   swipe these instinctively, no scrollbar needed to make that obvious. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

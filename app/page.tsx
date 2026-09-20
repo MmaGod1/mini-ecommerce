@@ -34,12 +34,12 @@ export default function HomePage() {
         />
       </div>
 
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide -mx-4 px-4">
         {tabs.map((c) => (
           <button
             key={c}
             onClick={() => setCategory(c)}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors shrink-0 whitespace-nowrap ${
               category === c
                 ? "bg-gold-500 text-white"
                 : "bg-gold-100 text-gold-700 hover:bg-gold-200"
