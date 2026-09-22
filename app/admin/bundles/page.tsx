@@ -9,6 +9,7 @@ export default function BundlesPage() {
   const { products } = useShop();
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   async function loadBundles() {
     setLoading(true);
@@ -35,6 +36,15 @@ export default function BundlesPage() {
     return products.find((p) => p.id === id)?.name ?? "(deleted product)";
   }
 
+  const filteredBundles = bundles.filter((b) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    if (b.name.toLowerCase().includes(q)) return true;
+    return b.productIds.some((id) =>
+      productName(id).toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
@@ -53,6 +63,15 @@ export default function BundlesPage() {
         </Link>
       </div>
 
+      {bundles.length > 0 && (
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by bundle name or product..."
+          className="w-full rounded-full bg-white border border-gold-200 px-4 py-2 text-sm outline-none focus:border-gold-500 card-shadow mb-5"
+        />
+      )}
+
       {loading ? (
         <p className="text-ink-500 text-sm">Loading...</p>
       ) : bundles.length === 0 ? (
@@ -60,9 +79,13 @@ export default function BundlesPage() {
           No bundle deals yet. Create one to offer a discount when customers
           buy several different products together.
         </p>
+      ) : filteredBundles.length === 0 ? (
+        <p className="text-ink-500 text-sm text-center py-10">
+          No bundles match your search.
+        </p>
       ) : (
         <div className="space-y-4">
-          {bundles.map((b) => (
+          {filteredBundles.map((b) => (
             <div key={b.id} className="bg-white rounded-lg card-shadow p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-semibold text-ink-900">{b.name}</p>

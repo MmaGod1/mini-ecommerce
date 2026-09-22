@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useShop } from "@/context/ShopContext";
 import { formatNaira } from "@/lib/pricing";
@@ -8,6 +9,13 @@ const LOW_STOCK_THRESHOLD = 2;
 
 export default function AdminDashboard() {
   const { products, updateVariantStock } = useShop();
+  const [search, setSearch] = useState("");
+
+  const filteredProducts = products.filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q);
+  });
 
   async function handleStockChange(
     productId: string,
@@ -23,32 +31,32 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-5 gap-3">
         <h1 className="text-xl font-bold text-ink-900">Products</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/admin/orders"
-            className="px-4 py-2 rounded-full text-sm font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
-          >
-            View Orders
-          </Link>
-          <Link
-            href="/admin/bundles"
-            className="px-4 py-2 rounded-full text-sm font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
-          >
-            Bundle Deals
-          </Link>
-          <Link
-            href="/admin/products/new"
-            className="px-4 py-2 rounded-full text-sm font-semibold bg-gold-600 text-white hover:bg-gold-700"
-          >
-            + Add Product
-          </Link>
-        </div>
+        <Link
+          href="/admin/products/new"
+          className="shrink-0 px-4 py-2 rounded-full text-sm font-semibold bg-gold-600 text-white hover:bg-gold-700"
+        >
+          + Add Product
+        </Link>
       </div>
 
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search products by name or slug..."
+        className="w-full rounded-full bg-white border border-gold-200 px-4 py-2 text-sm outline-none focus:border-gold-500 card-shadow mb-5"
+      />
+
+      {filteredProducts.length === 0 ? (
+        <p className="text-ink-500 text-sm text-center py-10">
+          {products.length === 0
+            ? "No products yet."
+            : "No products match your search."}
+        </p>
+      ) : (
       <div className="space-y-4">
-        {products.map((p) => {
+        {filteredProducts.map((p) => {
           const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
           const isSoldOut = totalStock === 0;
           return (
@@ -165,12 +173,13 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   );
-                })}
+                                })}
               </div>
             </div>
           );
         })}
       </div>
+      )}
     </div>
   );
 }
