@@ -44,7 +44,7 @@ export default function AdminDashboard() {
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search products by name or slug..."
+        placeholder="Search products by name..."
         className="w-full rounded-full bg-white border border-gold-200 px-4 py-2 text-sm outline-none focus:border-gold-500 card-shadow mb-5"
       />
 
