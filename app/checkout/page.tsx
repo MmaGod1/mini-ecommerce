@@ -7,6 +7,7 @@ import { calculateLineTotal, formatNaira } from "@/lib/pricing";
 import { isValidPhone, isValidArea, isValidEmail } from "@/lib/validation";
 import { COUNTRIES, statesForCountry } from "@/lib/locations";
 import { openPaystackCheckout } from "@/lib/paystack";
+import { toCustomerMessage } from "@/lib/customerError";
 
 export default function CheckoutPage() {
   const { cart, products, removeFromCart, placeOrder } = useShop();
@@ -88,11 +89,7 @@ export default function CheckoutPage() {
               `/orders?phone=${encodeURIComponent(phone)}&justPaid=1`
             );
           } catch (err) {
-            setSubmitError(
-              err instanceof Error
-                ? err.message
-                : "Something went wrong completing your order."
-            );
+            setSubmitError(toCustomerMessage(err));
             setSubmitting(false);
           }
         },
@@ -103,9 +100,7 @@ export default function CheckoutPage() {
         },
       });
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Something went wrong."
-      );
+      setSubmitError(toCustomerMessage(err));
       setSubmitting(false);
     }
   }
@@ -127,7 +122,7 @@ export default function CheckoutPage() {
   return (
     <div className="grid md:grid-cols-2 gap-8">
       {/* Order summary */}
-      <div>
+      <div className="min-w-0">
         <h1 className="text-xl font-bold text-ink-900 mb-4">Order Summary</h1>
         <div className="space-y-3">
           {lines.map((l) => (
@@ -187,7 +182,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Customer info + payment */}
-      <div>
+      <div className="min-w-0">
         <h2 className="text-lg font-bold text-ink-900 mb-4">
           Pickup Details
         </h2>
@@ -215,14 +210,14 @@ export default function CheckoutPage() {
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-gold-700 mb-1">
                 Country
               </label>
               <select
                 value={country}
                 onChange={(e) => handleCountryChange(e.target.value)}
-                className="w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                className="w-full max-w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
               >
                 {COUNTRIES.map((c) => (
                   <option key={c} value={c}>
@@ -231,14 +226,14 @@ export default function CheckoutPage() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-gold-700 mb-1">
                 State / Region
               </label>
               <select
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                className="w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
+                className="w-full max-w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
               >
                 {statesForCountry(country).map((s) => (
                   <option key={s} value={s}>
