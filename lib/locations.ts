@@ -1,4 +1,4 @@
-export const COUNTRIES = ["Nigeria", "Ghana"] as const;
+export const COUNTRIES = ["Nigeria", "Ghana", "Cameroon"] as const;
 
 export const NIGERIA_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue",
@@ -15,7 +15,12 @@ export const GHANA_REGIONS = [
   "Upper East", "Upper West", "Volta", "Western", "Western North",
 ];
 
+export const CAMEROON_REGIONS = [
+  "Adamawa", "Centre", "East", "Far North", "Littoral", "North", "North-West", "South", "South-West", "West",
+];
+
 export function statesForCountry(country: string): string[] {
   if (country === "Ghana") return GHANA_REGIONS;
+  if (country === "Cameroon") return CAMEROON_REGIONS;
   return NIGERIA_STATES;
 }
