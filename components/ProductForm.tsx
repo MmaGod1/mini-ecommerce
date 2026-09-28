@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { Variant, DiscountTier, Product } from "@/lib/types";
 import { uploadImage } from "@/lib/uploadImage";
+import { useToast } from "@/components/Toast";
 
 type VariantRow = {
   id?: string;
@@ -16,6 +17,7 @@ type VariantRow = {
   imageFile?: File; // newly picked photo, not uploaded yet
   imagePreview?: string; // what to show right now (existing or local preview)
 };
+
 type TierRow = { minQty: string; discountPercent: string };
 
 function slugify(name: string) {
@@ -28,6 +30,7 @@ function slugify(name: string) {
 
 function toVariantRows(product?: Product): VariantRow[] {
   if (!product) return [{ color: "", size: "", price: "", stock: "" }];
+
   return product.variants.map((v) => ({
     id: v.id,
     color: v.color,
@@ -43,6 +46,7 @@ function toTierRows(product?: Product): TierRow[] {
   if (!product?.discountTiers || product.discountTiers.length === 0) {
     return [{ minQty: "", discountPercent: "" }];
   }
+
   return product.discountTiers.map((t) => ({
     minQty: String(t.minQty),
     discountPercent: String(t.discountPercent),
@@ -56,7 +60,9 @@ export default function ProductForm({
 }) {
   const { addProduct, updateProduct, deleteProduct, categories } = useShop();
   const router = useRouter();
+  const { showToast } = useToast();
   const isEditing = Boolean(existingProduct);
+
   const mainImageInputRef = useRef<HTMLInputElement>(null);
   const variantImageInputRefs = useRef<Record<number, HTMLInputElement | null>>(
     {}
@@ -107,6 +113,7 @@ export default function ProductForm({
   function handleMainImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setMainImageFile(file);
     setMainImagePreview(URL.createObjectURL(file));
     setMainImageRemoved(false);
@@ -124,16 +131,19 @@ export default function ProductForm({
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
+
     updateVariant(i, "imageFile", file);
     updateVariant(i, "imagePreview", URL.createObjectURL(file));
   }
 
   function confirmNewCategory() {
     const trimmed = newCategoryName.trim();
+
     if (!trimmed) {
       setAddingCategory(false);
       return;
     }
+
     setCategory(trimmed);
     setNewCategoryName("");
     setAddingCategory(false);
@@ -141,10 +151,13 @@ export default function ProductForm({
 
   async function handleDelete() {
     if (!existingProduct) return;
+
     const confirmed = window.confirm(
       `Delete "${existingProduct.name}"? This can't be undone.`
     );
+
     if (!confirmed) return;
+
     setSaving(true);
     await deleteProduct(existingProduct.id);
     router.push("/admin");
@@ -153,20 +166,43 @@ export default function ProductForm({
   async function handleSubmit() {
     const finalCategory = addingCategory ? newCategoryName.trim() : category;
 
-    if (
-      !name.trim() ||
-      !finalCategory ||
-      variants.some((v) => !v.color || !v.price)
-    ) {
-      alert(
-        "Please fill in product name, category, and every colour's price."
+    if (!name.trim()) {
+      showToast("Product name is missing. Enter a name before saving.", "error");
+      return;
+    }
+
+    if (!finalCategory) {
+      showToast("Category is missing. Select a category before saving.", "error");
+      return;
+    }
+
+    const missingColor = variants.find((v) => !v.color.trim());
+    if (missingColor) {
+      showToast(
+        "A colour is missing. Enter a colour for every variant before saving.",
+        "error"
+      );
+      return;
+    }
+
+    const missingPrice = variants.find((v) => !v.price);
+    if (missingPrice) {
+      const color = missingPrice.color.trim();
+
+      showToast(
+        color
+          ? `Price is missing for ${color}. Enter a price before saving.`
+          : "A variant is missing its price. Enter a price before saving.",
+        "error"
       );
       return;
     }
 
     setSaving(true);
+
     try {
       let finalMainImageUrl: string | undefined = existingProduct?.imageUrl;
+
       if (mainImageFile) {
         finalMainImageUrl = await uploadImage(mainImageFile);
       } else if (mainImageRemoved) {
@@ -174,14 +210,22 @@ export default function ProductForm({
       }
 
       const productVariants: Variant[] = [];
+
       for (let i = 0; i < variants.length; i++) {
         const v = variants[i];
+
         let variantImageUrl = v.imageUrl;
+
         if (v.imageFile) {
           variantImageUrl = await uploadImage(v.imageFile);
         }
+
         productVariants.push({
-          id: v.id ?? `${slugify(name)}-${slugify(v.color)}-${slugify(v.size || String(i))}`,
+          id:
+            v.id ??
+            `${slugify(name)}-${slugify(v.color)}-${slugify(
+              v.size || String(i)
+            )}`,
           color: v.color,
           size: v.size.trim() || undefined,
           price: Number(v.price) || 0,
@@ -191,6 +235,7 @@ export default function ProductForm({
       }
 
       let discountTiers: DiscountTier[] | undefined = undefined;
+
       if (useDiscount) {
         const validTiers = tiers
           .filter((t) => t.minQty && t.discountPercent)
@@ -198,7 +243,10 @@ export default function ProductForm({
             minQty: Number(t.minQty),
             discountPercent: Number(t.discountPercent),
           }));
-        if (validTiers.length > 0) discountTiers = validTiers;
+
+        if (validTiers.length > 0) {
+          discountTiers = validTiers;
+        }
       }
 
       const product: Product = {
@@ -217,11 +265,14 @@ export default function ProductForm({
       } else {
         await addProduct(product);
       }
+
       router.push("/admin");
     } catch (err) {
-      alert(
-        "Something went wrong saving the product: " +
-          (err instanceof Error ? err.message : "unknown error")
+      showToast(
+        err instanceof Error && err.message
+          ? `Couldn't save the product: ${err.message}`
+          : "Couldn't save the product. Please check the details and try again.",
+        "error"
       );
     } finally {
       setSaving(false);
@@ -234,6 +285,7 @@ export default function ProductForm({
         <h1 className="text-xl font-bold text-ink-900">
           {isEditing ? `Edit ${existingProduct?.name}` : "Add New Product"}
         </h1>
+
         {isEditing && (
           <button
             onClick={handleDelete}
@@ -251,6 +303,7 @@ export default function ProductForm({
             <label className="block text-sm font-semibold text-gold-700 mb-1">
               Product Name
             </label>
+
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -258,20 +311,25 @@ export default function ProductForm({
               placeholder="e.g. Ankara Print Sneakers"
             />
           </div>
+
           <div>
             <label className="block text-sm font-semibold text-gold-700 mb-1">
               Category
             </label>
+
             {addingCategory ? (
               <div className="flex gap-2">
                 <input
                   autoFocus
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && confirmNewCategory()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && confirmNewCategory()
+                  }
                   placeholder="New category name"
                   className="w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                 />
+
                 <button
                   onClick={confirmNewCategory}
                   className="px-3 rounded-lg bg-gold-600 text-white text-sm font-semibold"
@@ -292,6 +350,7 @@ export default function ProductForm({
                     </option>
                   ))}
                 </select>
+
                 <button
                   onClick={() => setAddingCategory(true)}
                   className="px-3 rounded-lg border border-gold-400 text-gold-700 text-sm font-semibold whitespace-nowrap hover:bg-gold-50"
@@ -300,6 +359,7 @@ export default function ProductForm({
                 </button>
               </div>
             )}
+
             <p className="text-xs text-ink-500 mt-1">
               Not seeing the right category? Click "+ New" to add one, e.g.
               "Caps" or "Accessories".
@@ -311,6 +371,7 @@ export default function ProductForm({
           <label className="block text-sm font-semibold text-gold-700 mb-1">
             Description
           </label>
+
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -325,6 +386,7 @@ export default function ProductForm({
           <label className="block text-sm font-semibold text-gold-700 mb-1">
             Main Product Photo
           </label>
+
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -345,6 +407,7 @@ export default function ProductForm({
                 </>
               )}
             </button>
+
             <input
               ref={mainImageInputRef}
               type="file"
@@ -352,6 +415,7 @@ export default function ProductForm({
               onChange={handleMainImageChange}
               className="hidden"
             />
+
             {mainImagePreview && (
               <button
                 onClick={handleRemoveMainImage}
@@ -361,6 +425,7 @@ export default function ProductForm({
               </button>
             )}
           </div>
+
           <p className="text-xs text-ink-500 mt-1">
             Shown on the shop grid and as the default photo. Give a colour
             its own photo below if it looks meaningfully different.
@@ -373,6 +438,7 @@ export default function ProductForm({
             <label className="block text-sm font-semibold text-gold-700">
               Colours, Stock &amp; Photos
             </label>
+
             <button
               onClick={() =>
                 setVariants((prev) => [
@@ -385,6 +451,7 @@ export default function ProductForm({
               + Add colour
             </button>
           </div>
+
           <div className="space-y-3">
             {variants.map((v, i) => (
               <div
@@ -408,6 +475,7 @@ export default function ProductForm({
                     <span className="text-gold-500 text-lg">&#8593;</span>
                   )}
                 </button>
+
                 <input
                   ref={(el) => {
                     variantImageInputRefs.current[i] = el;
@@ -428,6 +496,7 @@ export default function ProductForm({
                       placeholder="Colour"
                       className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                     />
+
                     <input
                       value={v.size}
                       onChange={(e) =>
@@ -437,6 +506,7 @@ export default function ProductForm({
                       className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                     />
                   </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       value={v.price}
@@ -447,6 +517,7 @@ export default function ProductForm({
                       type="number"
                       className="rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                     />
+
                     <div className="flex gap-2">
                       <input
                         value={v.stock}
@@ -457,6 +528,7 @@ export default function ProductForm({
                         type="number"
                         className="w-full rounded-lg bg-white border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                       />
+
                       {variants.length > 1 && (
                         <button
                           onClick={() =>
@@ -465,17 +537,18 @@ export default function ProductForm({
                             )
                           }
                           className="text-red-600 text-sm font-bold"
-                        title="Remove colour"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
+                          title="Remove colour"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
           <p className="text-xs text-ink-500 mt-1">
             Each colour tracks its own stock. A colour's photo is optional,
             leave it blank to use the main product photo.
@@ -504,6 +577,7 @@ export default function ProductForm({
                     type="number"
                     className="col-span-2 rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                   />
+
                   <div className="flex gap-2 items-center">
                     <input
                       value={t.discountPercent}
@@ -514,6 +588,7 @@ export default function ProductForm({
                       type="number"
                       className="w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
                     />
+
                     {tiers.length > 1 && (
                       <button
                         onClick={() =>
@@ -529,6 +604,7 @@ export default function ProductForm({
                   </div>
                 </div>
               ))}
+
               <button
                 onClick={() =>
                   setTiers((prev) => [
@@ -540,6 +616,7 @@ export default function ProductForm({
               >
                 + Add another tier
               </button>
+
               <p className="text-xs text-ink-500">
                 Example: 5+ = 8% off, 10+ = 15% off. Thresholds are entirely
                 up to you per product.

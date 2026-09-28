@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
+import { useToast } from "@/components/Toast";
 
 export default function NewBundlePage() {
   const { products } = useShop();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [name, setName] = useState("");
   const [minItems, setMinItems] = useState("5");
@@ -21,25 +23,45 @@ export default function NewBundlePage() {
   }
 
   async function handleSubmit() {
-    if (
-      !name.trim() ||
-      !minItems ||
-      !discountPercent ||
-      selectedIds.length === 0
-    ) {
-      alert(
-        "Please name the bundle, set a minimum item count and discount, and pick at least one eligible product."
+    if (!name.trim()) {
+      showToast("Bundle name is missing. Enter a name before saving.", "error");
+      return;
+    }
+
+    if (!minItems) {
+      showToast(
+        "Minimum item count is missing. Enter how many different products are required.",
+        "error"
       );
       return;
     }
+
+    if (!discountPercent) {
+      showToast(
+        "Discount is missing. Enter the discount percentage for this bundle.",
+        "error"
+      );
+      return;
+    }
+
+    if (selectedIds.length === 0) {
+      showToast(
+        "No eligible products selected. Select at least one product for this bundle.",
+        "error"
+      );
+      return;
+    }
+
     if (selectedIds.length < Number(minItems)) {
-      alert(
-        `You picked ${selectedIds.length} eligible products, but the minimum is ${minItems}. A customer could never actually reach this deal, pick more products or lower the minimum.`
+      showToast(
+        `Not enough eligible products. You selected ${selectedIds.length}, but the minimum is ${minItems}. Select more products or lower the minimum.`,
+        "error"
       );
       return;
     }
 
     setSaving(true);
+
     try {
       const res = await fetch("/api/admin/bundles", {
         method: "POST",
@@ -51,11 +73,21 @@ export default function NewBundlePage() {
           productIds: selectedIds,
         }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not save bundle.");
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not save bundle.");
+      }
+
       router.push("/admin/bundles");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Something went wrong.");
+      showToast(
+        err instanceof Error && err.message
+          ? `Couldn't save the bundle: ${err.message}`
+          : "Couldn't save the bundle. Please check the details and try again.",
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -98,6 +130,7 @@ export default function NewBundlePage() {
               className="w-full rounded-lg bg-gold-50 border border-gold-200 px-3 py-2 text-sm outline-none focus:border-gold-500"
             />
           </div>
+
           <div>
             <label className="block text-sm font-semibold text-gold-700 mb-1">
               Discount (%)
@@ -117,6 +150,7 @@ export default function NewBundlePage() {
           <label className="block text-sm font-semibold text-gold-700 mb-2">
             Eligible Products ({selectedIds.length} selected)
           </label>
+
           <div className="border border-gold-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-gold-100">
             {products.map((p) => (
               <label
@@ -132,6 +166,7 @@ export default function NewBundlePage() {
                 <span className="text-xs text-ink-500">{p.category}</span>
               </label>
             ))}
+
             {products.length === 0 && (
               <p className="px-3 py-4 text-sm text-ink-500">
                 Add some products first.

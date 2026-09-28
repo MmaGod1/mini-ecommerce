@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ShopProvider } from "@/context/ShopContext";
 import Header from "@/components/Header";
+import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "Cherry's Closet",
@@ -16,10 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ShopProvider>
-          <Header />
-          <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
-        </ShopProvider>
+        <ToastProvider>
+          <ShopProvider>
+            <Header />
+            <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+          </ShopProvider>
+        </ToastProvider>
       </body>
     </html>
   );

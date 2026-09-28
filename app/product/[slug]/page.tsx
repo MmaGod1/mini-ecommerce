@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { calculateLineTotal, formatNaira } from "@/lib/pricing";
 
+const SALES_LIVE = false; // would set to true on Sept 29 to enable "Add to Cart"
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
@@ -207,6 +208,12 @@ export default function ProductDetailPage() {
           </div>
         )}
 
+        {!SALES_LIVE && (
+          <div className="mt-4 bg-gold-50 border border-gold-300 rounded-lg px-4 py-3 text-sm text-gold-700 font-semibold text-center">
+            Sales open Sept 29, check back soon!
+          </div>
+        )}
+        
         {/* Price + stock */}
         <div className="mt-5">
           <p className="text-2xl font-bold text-gold-700">
@@ -302,14 +309,16 @@ export default function ProductDetailPage() {
 
         <button
           onClick={handleAddToCart}
-          disabled={isSoldOut || atCartLimit}
+          disabled={!SALES_LIVE || isSoldOut || atCartLimit}
           className={`mt-5 w-full py-3 rounded-full font-bold text-white transition-colors ${
-            isSoldOut || atCartLimit
+            !SALES_LIVE || isSoldOut || atCartLimit
               ? "bg-ink-500/30 cursor-not-allowed"
               : "bg-gold-600 hover:bg-gold-700"
           }`}
         >
-          {isSoldOut
+          {!SALES_LIVE
+            ? "Coming Soon"
+            : isSoldOut
             ? "Sold Out"
             : atCartLimit
             ? "Max in Cart"

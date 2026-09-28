@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useShop } from "@/context/ShopContext";
 import { formatNaira } from "@/lib/pricing";
+import { useToast } from "@/components/Toast";
 
 const LOW_STOCK_THRESHOLD = 2;
 
 export default function AdminDashboard() {
   const { products, updateVariantStock } = useShop();
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
 
   const filteredProducts = products.filter((p) => {
@@ -25,7 +27,12 @@ export default function AdminDashboard() {
     try {
       await updateVariantStock(productId, variantId, newStock);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not update stock.");
+      showToast(
+        err instanceof Error && err.message
+          ? `Couldn't update stock: ${err.message}`
+          : "Couldn't update stock. Please check the stock value and try again.",
+        "error"
+      );
     }
   }
 

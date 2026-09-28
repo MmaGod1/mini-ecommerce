@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatNaira } from "@/lib/pricing";
 import { toCustomerMessage } from "@/lib/customerError";
 import { Order } from "@/lib/types";
+import { useToast } from "@/components/Toast";
 
 function escapeHtml(value: string): string {
   return value
@@ -24,6 +25,7 @@ function buildReceiptHtml(order: Order): string {
       const label = `${escapeHtml(item.productName)}${
         item.size ? `, Size ${escapeHtml(item.size)}` : ""
       } (${escapeHtml(item.color)})`;
+
       const discountNote =
         item.discountPercent > 0 || item.bundleDiscountPercent > 0
           ? `<div class="muted">${
@@ -38,6 +40,7 @@ function buildReceiptHtml(order: Order): string {
                 : ""
             }</div>`
           : "";
+
       return `
         <tr>
           <td>${label}${discountNote}</td>
@@ -152,16 +155,23 @@ function buildReceiptHtml(order: Order): string {
 </html>`;
 }
 
-function printReceipt(order: Order) {
+function printReceipt(
+  order: Order,
+  showToast: (message: string, type?: "success" | "error") => void
+) {
   const printWindow = window.open("", "_blank", "width=420,height=640");
+
   if (!printWindow) {
-    alert(
-      "Your browser blocked the print window. Please allow pop-ups for this site and try again."
+    showToast(
+      "Print window blocked. Please allow pop-ups for this site and try again.",
+      "error"
     );
     return;
   }
+
   printWindow.document.write(buildReceiptHtml(order));
   printWindow.document.close();
+
   printWindow.onload = () => {
     printWindow.focus();
     printWindow.print();
@@ -173,17 +183,25 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const { showToast } = useToast();
 
   async function loadOrders() {
     setLoading(true);
     setLoadError(null);
+
     try {
       const res = await fetch("/api/orders");
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not load orders.");
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not load orders.");
+      }
+
       setOrders(data);
     } catch (err) {
-      setLoadError(toCustomerMessage(err, "Couldn't load orders. Please try again."));
+      setLoadError(
+        toCustomerMessage(err, "Couldn't load orders. Please try again.")
+      );
     } finally {
       setLoading(false);
     }
@@ -195,7 +213,9 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders.filter((o) => {
     const q = search.trim().toLowerCase();
+
     if (!q) return true;
+
     return (
       o.id.toLowerCase().includes(q) ||
       o.phone.toLowerCase().includes(q) ||
@@ -246,12 +266,14 @@ export default function AdminOrdersPage() {
             <div key={o.id} className="bg-white rounded-lg card-shadow p-4">
               <div className="flex items-center justify-between mb-2 gap-2">
                 <p className="font-bold text-ink-900">{o.id}</p>
+
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="px-3 py-1 rounded-full text-xs font-bold text-white bg-green-600">
                     {o.status}
                   </span>
+
                   <button
-                    onClick={() => printReceipt(o)}
+                    onClick={() => printReceipt(o, showToast)}
                     className="px-3 py-1 rounded-full text-xs font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
                   >
                     Print Receipt
@@ -266,10 +288,12 @@ export default function AdminOrdersPage() {
                   </span>{" "}
                   {o.location}
                 </p>
+
                 <p>
                   <span className="font-semibold text-gold-700">Phone:</span>{" "}
                   {o.phone}
                 </p>
+
                 {o.comments && (
                   <p>
                     <span className="font-semibold text-gold-700">
@@ -298,16 +322,19 @@ export default function AdminOrdersPage() {
                         <div className="w-4 h-4 rounded-full bg-gold-200" />
                       )}
                     </div>
+
                     <span className="flex-1 text-sm">
                       {item.productName} &middot; {item.color}
                       {item.size ? `, Size ${item.size}` : ""} &times;{" "}
                       {item.quantity}
+
                       {item.discountPercent > 0 && (
                         <span className="text-gold-600">
                           {" "}
                           ({item.discountPercent}% off)
                         </span>
                       )}
+
                       {item.bundleDiscountPercent > 0 && (
                         <span className="text-gold-600">
                           {" "}
@@ -315,6 +342,7 @@ export default function AdminOrdersPage() {
                         </span>
                       )}
                     </span>
+
                     <span className="font-semibold text-sm shrink-0">
                       {formatNaira(item.lineTotal)}
                     </span>
