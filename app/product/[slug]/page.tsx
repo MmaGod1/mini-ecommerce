@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 import { calculateLineTotal, formatNaira } from "@/lib/pricing";
 
-const SALES_LIVE = false; // would set to true on Sept 29 to enable "Add to Cart"
+const SALES_LIVE = true; // would set to false on on sale end then disable "Add to Cart"
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
