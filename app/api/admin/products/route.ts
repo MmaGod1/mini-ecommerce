@@ -1,25 +1,63 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
+async function insertProductWithUniqueSlug(
+  baseSlug: string,
+  productData: {
+    name: string;
+    category: string;
+    description: string | null;
+    image_url: string | null;
+  }
+) {
+  let slug = baseSlug;
+  let attempt = 0;
+  const maxAttempts = 20;
+
+  while (attempt < maxAttempts) {
+    const { data, error } = await supabaseAdmin
+      .from("products")
+      .insert({ ...productData, slug })
+      .select()
+      .single();
+
+    if (!error) return data;
+
+    const isSlugCollision =
+      error.code === "23505" && error.message.includes("products_slug_key");
+
+    if (!isSlugCollision) {
+      throw error;
+    }
+
+    attempt += 1;
+    slug = `${baseSlug}-${attempt + 1}`;
+  }
+
+  throw new Error(
+    "Could not generate a unique identifier for this product after several attempts."
+  );
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const { name, slug, category, description, imageUrl, variants, discountTiers } =
     body;
 
-  const { data: product, error: productError } = await supabaseAdmin
-    .from("products")
-    .insert({
+    let product;
+  try {
+    product = await insertProductWithUniqueSlug(slug, {
       name,
-      slug,
       category,
       description: description ?? null,
       image_url: imageUrl ?? null,
-    })
-    .select()
-    .single();
-
-  if (productError) {
-    return NextResponse.json({ error: productError.message }, { status: 400 });
+    });
+  } catch (err) {
+    console.error("[admin/products] insert failed:", err);
+    return NextResponse.json(
+      { error: "Something went wrong saving this product. Please try again." },
+      { status: 400 }
+    );
   }
 
   if (variants?.length) {
