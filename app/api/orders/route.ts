@@ -49,6 +49,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  const { data: existingOrder } = await supabaseAdmin
+    .from("orders")
+    .select("id")
+    .eq("paystack_reference", paystackReference)
+    .maybeSingle();
+
+  if (existingOrder) {
+    return NextResponse.json({ id: existingOrder.id });
+  }
+
   const cleanedPhone = phone.replace(/[\s-]/g, "");
 
   // Only variantId and quantity are trusted from the client.
@@ -121,6 +131,7 @@ export async function POST(req: Request) {
     p_phone: cleanedPhone,
     p_comments: comments ?? null,
     p_items: strippedItems,
+    p_paystack_reference: paystackReference,
   });
 
   if (error) {
@@ -150,11 +161,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-
-  await supabaseAdmin
-    .from("orders")
-    .update({ paystack_reference: paystackReference })
-    .eq("id", data);
 
   return NextResponse.json({ id: data });
 }
