@@ -73,6 +73,15 @@ export default function CheckoutPage() {
       await openPaystackCheckout({
         email,
         amountKobo,
+        metadata: {
+          items: cart.map((item) => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+          location,
+          phone,
+          comments: comments || null,
+        },
         onSuccess: async (reference) => {
           try {
             await placeOrder({

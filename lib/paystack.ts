@@ -28,12 +28,22 @@ function loadPaystackScript(): Promise<void> {
 export async function openPaystackCheckout(options: {
   email: string;
   amountKobo: number;
+  metadata: {
+    items: {
+      variantId: string;
+      quantity: number;
+    }[];
+    location: string;
+    phone: string;
+    comments: string | null;
+  };
   onSuccess: (reference: string) => void;
   onClose: () => void;
 }): Promise<void> {
   await loadPaystackScript();
 
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+
   if (!publicKey) {
     throw new Error("We couldn't start the payment. Please try again.");
   }
@@ -43,6 +53,7 @@ export async function openPaystackCheckout(options: {
     email: options.email,
     amount: options.amountKobo,
     currency: "NGN",
+    metadata: options.metadata,
     callback: (response: { reference: string }) => {
       options.onSuccess(response.reference);
     },
