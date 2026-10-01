@@ -188,11 +188,6 @@ export default function CheckoutPage() {
             {formatNaira(grandTotal)}
           </span>
         </div>
-        <p className="text-xs text-ink-500 mt-1">
-          If your cart qualifies for a bundle deal, that discount is applied
-          automatically when payment completes, the amount Paystack charges
-          may come out lower than shown here.
-        </p>
       </div>
 
       {/* Customer info + payment */}

@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   });
 
   if (error) {
+  console.error("[Quote API] quote_order failed:", error);
     if (error.message?.startsWith("INSUFFICIENT_STOCK")) {
       return NextResponse.json(
         { error: "One or more items in your cart no longer have enough stock." },

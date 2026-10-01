@@ -7,17 +7,19 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { Product, CartLine } from "@/lib/types";
+import { Product, CartLine, Bundle } from "@/lib/types";
 import { supabase } from "@/lib/supabaseClient";
 import { mapProductRow } from "@/lib/mappers";
 
 type ShopContextType = {
   products: Product[];
   categories: string[];
+  bundles: Bundle[];
   cart: CartLine[];
   loading: boolean;
   productsError: string | null;
   refreshProducts: () => Promise<void>;
+  refreshBundles: () => Promise<void>;
   addProduct: (p: Product) => Promise<void>;
   updateProduct: (p: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
@@ -45,6 +47,7 @@ const CART_STORAGE_KEY = "yourshop-cart";
 export function ShopProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [bundles, setBundles] = useState<Bundle[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartHydrated, setCartHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -100,6 +103,34 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function refreshBundles() {
+    const { data, error } = await supabase
+      .from("bundles")
+      .select(
+        "id, name, min_items, discount_percent, bundle_products(product_id)"
+      )
+      .order("created_at", { ascending: true });
+
+    if (!error && data) {
+      setBundles(
+        data.map((bundle) => ({
+          id: bundle.id,
+          name: bundle.name,
+          minItems: bundle.min_items,
+          discountPercent: bundle.discount_percent,
+          productIds: bundle.bundle_products.map(
+            (bundleProduct) => bundleProduct.product_id
+          ),
+        }))
+      );
+    } else {
+      console.error(
+        "[ShopContext] Could not load bundle deals:",
+        error?.message
+      );
+    }
+  }
+
   // Load any cart saved from a previous visit. cartHydrated starts
   // false, so the save-effect below is guaranteed to skip its very
   // first run rather than overwrite a save it hasn't read yet. Using
@@ -132,7 +163,11 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([refreshProducts(), refreshCategories()]);
+      await Promise.all([
+        refreshProducts(),
+        refreshCategories(),
+        refreshBundles(),
+      ]);
       setLoading(false);
     })();
   }, []);
@@ -263,10 +298,12 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       value={{
         products,
         categories,
+        bundles,
         cart,
         loading,
         productsError,
         refreshProducts,
+        refreshBundles,
         addProduct,
         updateProduct,
         deleteProduct,

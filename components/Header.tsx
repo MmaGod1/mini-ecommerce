@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useShop } from "@/context/ShopContext";
 
+
 export default function Header() {
   const { cart } = useShop();
   const pathname = usePathname();
@@ -14,6 +15,7 @@ export default function Header() {
   const isShop = pathname === "/";
   const isCart = pathname === "/checkout";
   const isOrders = pathname === "/orders";
+  const isBundles = pathname === "/bundles";
 
   // Close the mobile menu automatically whenever the route changes,
   // so it doesn't stay open after tapping a link.
@@ -37,7 +39,12 @@ export default function Header() {
 
   const navLinks = [
     { href: "/", label: "Shop", active: isShop },
-    { href: "/checkout", label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, active: isCart },
+    { href: "/bundles", label: "Bundle Deals", active: isBundles },
+    {
+      href: "/checkout",
+      label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}`,
+      active: isCart,
+    },
     { href: "/orders", label: "My Orders", active: isOrders },
   ];
 
