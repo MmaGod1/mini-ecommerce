@@ -178,6 +178,28 @@ function printReceipt(
   };
 }
 
+function groupOrdersByDate(orders: Order[]) {
+  const map = new Map<string, Order[]>();
+
+  for (const order of orders) {
+    const key = new Date(order.createdAt).toDateString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(order);
+  }
+
+  // Map preserves insertion order, and `orders` already arrives newest
+  // first from the API, so groups come out newest-day-first for free.
+  return Array.from(map.entries()).map(([key, groupOrders]) => ({
+    label: new Date(key).toLocaleDateString("en-NG", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    orders: groupOrders,
+  }));
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,10 +282,16 @@ export default function AdminOrdersPage() {
         <p className="text-ink-500 text-sm text-center py-10">
           No orders match your search.
         </p>
-      ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((o) => (
-            <div key={o.id} className="bg-white rounded-lg card-shadow p-4">
+           ) : (
+        <div className="space-y-6">
+          {groupOrdersByDate(filteredOrders).map((group) => (
+            <div key={group.label}>
+              <h2 className="text-sm font-bold text-gold-700 uppercase tracking-wide mb-3">
+                {group.label}
+              </h2>
+              <div className="space-y-4">
+                {group.orders.map((o) => (
+                  <div key={o.id} className="bg-white rounded-lg card-shadow p-4">
               <div className="flex items-center justify-between mb-2 gap-2">
                 <p className="font-bold text-ink-900">{o.id}</p>
 
@@ -353,6 +381,9 @@ export default function AdminOrdersPage() {
               <div className="border-t border-gold-100 mt-2 pt-2 flex justify-between font-bold text-ink-900">
                 <span>Total</span>
                 <span>{formatNaira(o.total)}</span>
+              </div>
+                        </div>
+                ))}
               </div>
             </div>
           ))}
