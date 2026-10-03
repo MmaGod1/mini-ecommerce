@@ -1,4 +1,12 @@
-import { Product, Variant, DiscountTier, Order, OrderItem, Bundle } from "./types";
+import {
+  Product,
+  Variant,
+  DiscountTier,
+  Order,
+  OrderItem,
+  Bundle,
+  FulfilmentStatus,
+} from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapProductRow(row: any): Product {
@@ -43,6 +51,9 @@ export function mapOrderRow(row: any): Order {
     total: row.total,
     status: row.status,
     createdAt: row.created_at,
+    fulfilmentStatus: (row.fulfilment_status ?? "Pending") as FulfilmentStatus,
+    packagedAt: row.packaged_at ?? null,
+    sentOutAt: row.sent_out_at ?? null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: (row.order_items ?? []).map(
       (i: any): OrderItem => ({

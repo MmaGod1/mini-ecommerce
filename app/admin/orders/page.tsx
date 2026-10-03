@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatNaira } from "@/lib/pricing";
 import { toCustomerMessage } from "@/lib/customerError";
-import { Order } from "@/lib/types";
+import { FulfilmentStatus, Order } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 
 function escapeHtml(value: string): string {
@@ -80,12 +80,37 @@ function buildReceiptHtml(order: Order): string {
   .meta { font-size: 13px; margin-bottom: 14px; }
   .meta div { margin-bottom: 2px; }
   .label { color: #96690A; font-weight: bold; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
-  th { text-align: left; border-bottom: 2px solid #1F1B10; padding: 6px 4px; font-size: 11px; text-transform: uppercase; }
-  td { padding: 8px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  th {
+    text-align: left;
+    border-bottom: 2px solid #1F1B10;
+    padding: 6px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 8px 4px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
   .right { text-align: right; white-space: nowrap; }
-  .muted { font-size: 11px; color: #96690A; margin-top: 2px; }
-  .total-row td { border-bottom: none; border-top: 2px solid #1F1B10; font-weight: bold; font-size: 15px; padding-top: 10px; }
+  .muted {
+    font-size: 11px;
+    color: #96690A;
+    margin-top: 2px;
+  }
+  .total-row td {
+    border-bottom: none;
+    border-top: 2px solid #1F1B10;
+    font-weight: bold;
+    font-size: 15px;
+    padding-top: 10px;
+  }
   .status {
     display: inline-block;
     background: #2E9E5B;
@@ -183,12 +208,12 @@ function groupOrdersByDate(orders: Order[]) {
 
   for (const order of orders) {
     const key = new Date(order.createdAt).toDateString();
+
     if (!map.has(key)) map.set(key, []);
+
     map.get(key)!.push(order);
   }
 
-  // Map preserves insertion order, and `orders` already arrives newest
-  // first from the API, so groups come out newest-day-first for free.
   return Array.from(map.entries()).map(([key, groupOrders]) => ({
     label: new Date(key).toLocaleDateString("en-NG", {
       weekday: "long",
@@ -205,6 +230,14 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  const [pendingFulfilment, setPendingFulfilment] = useState<{
+    orderId: string;
+    nextStatus: FulfilmentStatus;
+  } | null>(null);
+
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
   const { showToast } = useToast();
 
   async function loadOrders() {
@@ -212,7 +245,7 @@ export default function AdminOrdersPage() {
     setLoadError(null);
 
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch("/api/admin/orders");
       const data = await res.json();
 
       if (!res.ok) {
@@ -229,20 +262,78 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function confirmFulfilmentChange() {
+    if (!pendingFulfilment || updatingOrderId) return;
+
+    const { orderId, nextStatus } = pendingFulfilment;
+
+    setUpdatingOrderId(orderId);
+
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: orderId,
+          fulfilmentStatus: nextStatus,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not update order status.");
+      }
+
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                fulfilmentStatus: data.order.fulfilmentStatus,
+                packagedAt: data.order.packagedAt,
+                sentOutAt: data.order.sentOutAt,
+              }
+            : order
+        )
+      );
+
+      setPendingFulfilment(null);
+
+      showToast(
+        `Order ${orderId} marked ${nextStatus}.`,
+        "success"
+      );
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : "Could not update order status.",
+        "error"
+      );
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
+
   useEffect(() => {
     loadOrders();
   }, []);
 
-  
   const filteredOrders = orders.filter((o) => {
     const q = search.trim().toLowerCase();
+
     if (!q) return true;
 
     return (
       o.id.toLowerCase().includes(q) ||
       o.phone.toLowerCase().includes(q) ||
       (o.paystackReference ?? "").toLowerCase().includes(q) ||
-      o.items.some((item) => item.productName.toLowerCase().includes(q))
+      o.items.some((item) =>
+        item.productName.toLowerCase().includes(q)
+      )
     );
   });
 
@@ -253,7 +344,10 @@ export default function AdminOrdersPage() {
   if (loadError) {
     return (
       <div className="text-center py-10">
-        <p className="text-red-600 text-sm font-semibold mb-2">{loadError}</p>
+        <p className="text-red-600 text-sm font-semibold mb-2">
+          {loadError}
+        </p>
+
         <button
           onClick={loadOrders}
           className="px-4 py-2 rounded-full text-sm font-semibold bg-gold-600 text-white hover:bg-gold-700"
@@ -266,7 +360,9 @@ export default function AdminOrdersPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-ink-900 mb-4">Orders Received</h1>
+      <h1 className="text-xl font-bold text-ink-900 mb-4">
+        Orders Received
+      </h1>
 
       {orders.length > 0 && (
         <input
@@ -283,111 +379,220 @@ export default function AdminOrdersPage() {
         <p className="text-ink-500 text-sm text-center py-10">
           No orders match your search.
         </p>
-           ) : (
+      ) : (
         <div className="space-y-6">
           {groupOrdersByDate(filteredOrders).map((group) => (
             <div key={group.label}>
               <h2 className="text-sm font-bold text-gold-700 uppercase tracking-wide mb-3">
                 {group.label}
               </h2>
+
               <div className="space-y-4">
                 {group.orders.map((o) => (
-                  <div key={o.id} className="bg-white rounded-lg card-shadow p-4">
-              <div className="flex items-center justify-between mb-2 gap-2">
-                <p className="font-bold text-ink-900">{o.id}</p>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold text-white bg-green-600">
-                    {o.status}
-                  </span>
-
-                  <button
-                    onClick={() => printReceipt(o, showToast)}
-                    className="px-3 py-1 rounded-full text-xs font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
-                  >
-                    Print Receipt
-                  </button>
-                </div>
-              </div>
-
-              <div className="text-sm text-ink-700 space-y-0.5 mb-3">
-                <p>
-                  <span className="font-semibold text-gold-700">
-                    Location:
-                  </span>{" "}
-                  {o.location}
-                </p>
-
-                <p>
-                  <span className="font-semibold text-gold-700">Phone:</span>{" "}
-                  {o.phone}
-                </p>
-
-                {o.comments && (
-                  <p>
-                    <span className="font-semibold text-gold-700">
-                      Comments:
-                    </span>{" "}
-                    {o.comments}
-                  </p>
-                )}
-              </div>
-
-              <div className="border-t border-gold-100 pt-2 space-y-2">
-                {o.items.map((item) => (
                   <div
-                    key={item.variantId}
-                    className="flex items-center gap-3"
+                    key={o.id}
+                    className="bg-white rounded-lg card-shadow p-4"
                   >
-                    <div className="w-10 h-10 rounded-md bg-gold-50 flex items-center justify-center overflow-hidden shrink-0">
-                      {item.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.imageUrl}
-                          alt={item.productName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-4 h-4 rounded-full bg-gold-200" />
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <p className="font-bold text-ink-900">{o.id}</p>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold text-white bg-green-600">
+                          {o.status}
+                        </span>
+
+                        <button
+                          onClick={() => printReceipt(o, showToast)}
+                          className="px-3 py-1 rounded-full text-xs font-semibold border border-gold-400 text-gold-700 hover:bg-gold-50"
+                        >
+                          Print Receipt
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mb-3 rounded-lg border border-gold-100 bg-gold-50/50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-ink-500 mb-1">
+                            Fulfilment status
+                          </p>
+
+                          <p className="text-sm font-bold text-ink-900">
+                            {o.fulfilmentStatus}
+                          </p>
+
+                          {o.packagedAt && (
+                            <p className="text-xs text-ink-500 mt-1">
+                              Packaged:{" "}
+                              {new Date(o.packagedAt).toLocaleString(
+                                "en-NG"
+                              )}
+                            </p>
+                          )}
+
+                          {o.sentOutAt && (
+                            <p className="text-xs text-ink-500 mt-1">
+                              Sent out:{" "}
+                              {new Date(o.sentOutAt).toLocaleString(
+                                "en-NG"
+                              )}
+                            </p>
+                          )}
+                        </div>
+
+                        {o.fulfilmentStatus !== "Sent out" && (
+                          <button
+                            type="button"
+                            disabled={updatingOrderId !== null}
+                            onClick={() =>
+                              setPendingFulfilment({
+                                orderId: o.id,
+                                nextStatus:
+                                  o.fulfilmentStatus === "Pending"
+                                    ? "Packaged"
+                                    : "Sent out",
+                              })
+                            }
+                            className="rounded-full bg-gold-600 px-4 py-2 text-xs font-semibold text-white hover:bg-gold-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {updatingOrderId === o.id
+                              ? "Saving..."
+                              : o.fulfilmentStatus === "Pending"
+                                ? "Mark as Packaged"
+                                : "Mark as Sent Out"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-ink-700 space-y-0.5 mb-3">
+                      <p>
+                        <span className="font-semibold text-gold-700">
+                          Location:
+                        </span>{" "}
+                        {o.location}
+                      </p>
+
+                      <p>
+                        <span className="font-semibold text-gold-700">
+                          Phone:
+                        </span>{" "}
+                        {o.phone}
+                      </p>
+
+                      {o.comments && (
+                        <p>
+                          <span className="font-semibold text-gold-700">
+                            Comments:
+                          </span>{" "}
+                          {o.comments}
+                        </p>
                       )}
                     </div>
 
-                    <span className="flex-1 text-sm">
-                      {item.productName} &middot; {item.color}
-                      {item.size ? `, Size ${item.size}` : ""} &times;{" "}
-                      {item.quantity}
+                    <div className="border-t border-gold-100 pt-2 space-y-2">
+                      {o.items.map((item) => (
+                        <div
+                          key={item.variantId}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="w-10 h-10 rounded-md bg-gold-50 flex items-center justify-center overflow-hidden shrink-0">
+                            {item.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.imageUrl}
+                                alt={item.productName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full bg-gold-200" />
+                            )}
+                          </div>
 
-                      {item.discountPercent > 0 && (
-                        <span className="text-gold-600">
-                          {" "}
-                          ({item.discountPercent}% off)
-                        </span>
-                      )}
+                          <span className="flex-1 text-sm">
+                            {item.productName} &middot; {item.color}
+                            {item.size ? `, Size ${item.size}` : ""} &times;{" "}
+                            {item.quantity}
 
-                      {item.bundleDiscountPercent > 0 && (
-                        <span className="text-gold-600">
-                          {" "}
-                          (+{item.bundleDiscountPercent}% bundle deal)
-                        </span>
-                      )}
-                    </span>
+                            {item.discountPercent > 0 && (
+                              <span className="text-gold-600">
+                                {" "}
+                                ({item.discountPercent}% off)
+                              </span>
+                            )}
 
-                    <span className="font-semibold text-sm shrink-0">
-                      {formatNaira(item.lineTotal)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                            {item.bundleDiscountPercent > 0 && (
+                              <span className="text-gold-600">
+                                {" "}
+                                (+{item.bundleDiscountPercent}% bundle deal)
+                              </span>
+                            )}
+                          </span>
 
-              <div className="border-t border-gold-100 mt-2 pt-2 flex justify-between font-bold text-ink-900">
-                <span>Total</span>
-                <span>{formatNaira(o.total)}</span>
-              </div>
+                          <span className="font-semibold text-sm shrink-0">
+                            {formatNaira(item.lineTotal)}
+                          </span>
                         </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-gold-100 mt-2 pt-2 flex justify-between font-bold text-ink-900">
+                      <span>Total</span>
+                      <span>{formatNaira(o.total)}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {pendingFulfilment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fulfilment-dialog-title"
+            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+          >
+            <h2
+              id="fulfilment-dialog-title"
+              className="text-lg font-bold text-ink-900"
+            >
+              Confirm order status change
+            </h2>
+
+            <p className="mt-3 text-sm text-ink-700">
+              Are you sure you want to mark order{" "}
+              <strong>{pendingFulfilment.orderId}</strong> as{" "}
+              <strong>{pendingFulfilment.nextStatus}</strong>?
+            </p>
+
+            <p className="mt-2 text-sm text-red-700">
+              This action cannot be undone from the dashboard.
+            </p>
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={updatingOrderId !== null}
+                onClick={() => setPendingFulfilment(null)}
+                className="rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={updatingOrderId !== null}
+                onClick={confirmFulfilmentChange}
+                className="rounded-full bg-gold-600 px-4 py-2 text-sm font-semibold text-white hover:bg-gold-700 disabled:opacity-50"
+              >
+                {updatingOrderId ? "Saving..." : "Yes, confirm"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
