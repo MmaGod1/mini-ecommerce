@@ -263,6 +263,12 @@ export default function CheckoutPage() {
               </div>
 
               <div className="text-right shrink-0">
+                {l.total < l.subtotal && (
+                  <p className="text-xs text-ink-500 line-through">
+                    {formatNaira(l.subtotal)}
+                  </p>
+                )}
+
                 <p className="font-bold text-sm text-ink-900">
                   {formatNaira(l.total)}
                 </p>
@@ -311,9 +317,14 @@ export default function CheckoutPage() {
                   {bundle.name}
                 </p>
 
-                {bundle.qualified ? (
+                {bundle.qualified && hasBundleDiscount ? (
                   <p className="text-xs text-green-700 mt-1">
-                    Bundle discount unlocked.
+                    Bundle discount applied.
+                  </p>
+                ) : bundle.qualified ? (
+                  <p className="text-xs text-ink-600 mt-1">
+                    Bundle requirement met, but no additional bundle discount applies to
+                    this cart.
                   </p>
                 ) : bundle.selectedCount > 0 ? (
                   <p className="text-xs text-ink-600 mt-1">
