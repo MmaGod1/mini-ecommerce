@@ -60,6 +60,9 @@ export type OrderItem = CartLine & {
   lineTotal: number;
 };
 
+
+export type FulfilmentStatus = "Pending" | "Packaged" | "Sent out";
+
 export type Order = {
   id: string;
   items: OrderItem[];
@@ -70,4 +73,7 @@ export type Order = {
   createdAt: string;
   status: "Paid";
   paystackReference?: string;
+  fulfilmentStatus: FulfilmentStatus;
+  packagedAt?: string | null;
+  sentOutAt?: string | null;
 };
