@@ -28,11 +28,8 @@ export function toCustomerMessage(err: unknown, fallback?: string): string {
 
   // Stock ran out between browsing and paying, this message is
   // already written to be shown as-is, just strip the internal prefix.
-  if (raw.startsWith("INSUFFICIENT_STOCK")) {
-    return `Sorry, one of your cart items just sold out: ${raw.replace(
-      "INSUFFICIENT_STOCK: ",
-      ""
-    )}. Please update your cart and try again.`;
+  if (/^INSUFFICIENT_STOCK\b/i.test(raw)) {
+    return "Sorry, one or more items in your cart are no longer available in the quantity you selected. Please review your cart and try again.";
   }
 
   // Anything that looks like a database/SDK/internal error, or is
