@@ -8,6 +8,7 @@ import { isValidPhone, isValidArea, isValidEmail } from "@/lib/validation";
 import { COUNTRIES, statesForCountry } from "@/lib/locations";
 import { openPaystackCheckout } from "@/lib/paystack";
 import { toCustomerMessage } from "@/lib/customerError";
+import { useToast } from "@/components/Toast";
 
 export default function CheckoutPage() {
   const {
@@ -19,6 +20,7 @@ export default function CheckoutPage() {
   } = useShop();
 
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [country, setCountry] = useState<string>(COUNTRIES[0]);
   const [state, setState] = useState<string>(
@@ -54,13 +56,9 @@ export default function CheckoutPage() {
     quotedTotal !== null && quotedTotal < grandTotal;
 
   const bundleProgress = bundles.map((bundle) => {
-    const selectedProductIds = new Set(
-      cart
-        .filter((line) => bundle.productIds.includes(line.productId))
-        .map((line) => line.productId)
-    );
-
-    const selectedCount = selectedProductIds.size;
+    const selectedCount = cart
+      .filter((line) => bundle.productIds.includes(line.productId))
+      .reduce((sum, line) => sum + line.quantity, 0);
 
     return {
       ...bundle,
@@ -187,7 +185,9 @@ export default function CheckoutPage() {
               `/orders?phone=${encodeURIComponent(phone)}&justPaid=1`
             );
           } catch (err) {
-            setSubmitError(toCustomerMessage(err));
+            const message = toCustomerMessage(err);
+            setSubmitError(message);
+            showToast(message, "error");
             setSubmitting(false);
           }
         },
@@ -196,7 +196,9 @@ export default function CheckoutPage() {
         },
       });
     } catch (err) {
-      setSubmitError(toCustomerMessage(err));
+      const message = toCustomerMessage(err);
+      setSubmitError(message);
+      showToast(message, "error");
       setSubmitting(false);
     }
   }
@@ -316,14 +318,13 @@ export default function CheckoutPage() {
                 ) : bundle.selectedCount > 0 ? (
                   <p className="text-xs text-ink-600 mt-1">
                     {bundle.selectedCount} of {bundle.minItems} eligible
-                    products selected. Add {bundle.remaining} more{" "}
+                    items selected. Add {bundle.remaining} more{" "}
                     {bundle.remaining === 1 ? "item" : "items"} to unlock
                     this deal.
                   </p>
                 ) : (
                   <p className="text-xs text-green-700 mt-1">
-                    Choose {bundle.minItems} different eligible products to
-                    unlock this deal.
+                    Buy {bundle.minItems} eligible items to unlock this deal.
                   </p>
                 )}
               </div>

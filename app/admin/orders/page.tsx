@@ -233,14 +233,15 @@ export default function AdminOrdersPage() {
     loadOrders();
   }, []);
 
+  
   const filteredOrders = orders.filter((o) => {
     const q = search.trim().toLowerCase();
-
     if (!q) return true;
 
     return (
       o.id.toLowerCase().includes(q) ||
       o.phone.toLowerCase().includes(q) ||
+      (o.paystackReference ?? "").toLowerCase().includes(q) ||
       o.items.some((item) => item.productName.toLowerCase().includes(q))
     );
   });
@@ -271,7 +272,7 @@ export default function AdminOrdersPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by order number, phone, or product..."
+          placeholder="Search by order number, Paystack reference, phone, or product..."
           className="w-full rounded-full bg-white border border-gold-200 px-4 py-2 text-sm outline-none focus:border-gold-500 card-shadow mb-5"
         />
       )}

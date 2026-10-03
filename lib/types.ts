@@ -69,4 +69,5 @@ export type Order = {
   comments?: string;
   createdAt: string;
   status: "Paid";
+  paystackReference?: string;
 };
