@@ -164,11 +164,16 @@ export default function CheckoutPage() {
                 <p className="text-xs text-ink-500">Qty: {l.quantity}</p>
                 {l.discountPercent > 0 && (
                   <p className="text-xs text-gold-600">
-                    {l.discountPercent}% discount applied
+                    {l.discountPercent}% quantity discount
                   </p>
                 )}
               </div>
               <div className="text-right shrink-0">
+                {l.total < l.subtotal && (
+                  <p className="text-xs text-ink-500 line-through">
+                    {formatNaira(l.subtotal)}
+                  </p>
+                )}
                 <p className="font-bold text-sm text-ink-900">
                   {formatNaira(l.total)}
                 </p>
