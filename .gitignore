@@ -9,6 +9,7 @@
 .env
 .env.local
 .env.*.local
+.env.migration
 
 # misc
 .DS_Store
