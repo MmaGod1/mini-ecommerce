@@ -16,6 +16,7 @@ export default function Header() {
   const isCart = pathname === "/checkout";
   const isOrders = pathname === "/orders";
   const isBundles = pathname === "/bundles";
+  const isAbout = pathname === "/about"
 
   // Close the mobile menu automatically whenever the route changes,
   // so it doesn't stay open after tapping a link.
@@ -46,6 +47,7 @@ export default function Header() {
       active: isCart,
     },
     { href: "/orders", label: "My Orders", active: isOrders },
+    { href: "/about", label: "About & Policies", active: isAbout },
   ];
 
   return (
